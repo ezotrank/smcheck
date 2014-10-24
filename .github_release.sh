@@ -13,9 +13,10 @@ if [ -z "$TOKEN" ]; then
 fi
 
 make || exit 1
+make build || exit 1
 
-gzip -9 -f -k $GOPATH/bin/smcheck_linux || exit 1
-gzip -9 -f -k $GOPATH/bin/smcheck || exit 1
+gzip -9 -f -k builds/smcheck_linux || exit 1
+gzip -9 -f -k builds/smcheck || exit 1
 
 
 response=`curl --data "{\\"tag_name\\": \\"$TAG\\",\\"target_commitish\\": \\"master\\",\\"name\\": \\"$TAG\\",\\"body\\": \\"Release of version $TAG\\", \\"draft\\": false,\\"prerelease\\": false}" \
