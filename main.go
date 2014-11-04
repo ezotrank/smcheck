@@ -13,7 +13,6 @@ import (
 )
 
 var (
-	url         = flag.String("url", "", "Example: http://ya.ru/sitemap.xml.gz")
 	concurrency = flag.Int("c", 5, "Concurency level")
 )
 
@@ -58,7 +57,7 @@ func getUrl() <-chan string {
 	out := make(chan string)
 
 	go func() {
-		resp, err := http.Get(*url)
+		resp, err := http.Get(flag.Args()[0])
 		if err != nil {
 			panic(err)
 		}
@@ -72,15 +71,12 @@ func getUrl() <-chan string {
 			if err != nil {
 				panic(err)
 			}
-			go func() {
-				for _, page := range pages.Pages {
-					out <- page.Loc
-				}
-				close(out)
-			}()
+			for _, page := range pages.Pages {
+				out <- page.Loc
+			}
 		} else {
-			fmt.Println("its index")
 			for _, index := range index.Indexes {
+				fmt.Println("check index ", index.Loc)
 				respi, erri := http.Get(index.Loc)
 				if erri != nil {
 					panic(erri)
@@ -91,15 +87,12 @@ func getUrl() <-chan string {
 				if err != nil {
 					panic(err)
 				}
-				go func() {
-					for _, page := range pages.Pages {
-						out <- page.Loc
-					}
-					close(out)
-				}()
+				for _, page := range pages.Pages {
+					out <- page.Loc
+				}
 			}
-
 		}
+		close(out)
 	}()
 	return out
 }
@@ -121,8 +114,4 @@ func main() {
 			resp, err = http.Get(url)
 		}(url)
 	}
-	for i := 0; i < cap(sem); i++ {
-		sem <- true
-	}
-
 }
