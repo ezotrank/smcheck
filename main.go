@@ -17,6 +17,14 @@ var (
 	concurrency = flag.Int("c", 5, "Concurency level")
 )
 
+type SitemapIndex struct {
+	Indexes []*Index `xml:"sitemap"`
+}
+
+type Index struct {
+	Loc string `xml:"loc"`
+}
+
 type Pages struct {
 	XMLName    xml.Name `xml:"urlset"`
 	XmlNS      string   `xml:"xmlns,attr"`
@@ -49,22 +57,49 @@ func unzip(body []byte) []byte {
 func getUrl() <-chan string {
 	out := make(chan string)
 
-	resp, err := http.Get(*url)
-	if err != nil {
-		panic(err)
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	pages := &Pages{}
-	err = xml.Unmarshal(unzip(body), pages)
-	if err != nil {
-		panic(err)
-	}
 	go func() {
-		for _, page := range pages.Pages {
-			out <- page.Loc
+		resp, err := http.Get(*url)
+		if err != nil {
+			panic(err)
 		}
-		close(out)
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		index := &SitemapIndex{}
+		pages := &Pages{}
+		err = xml.Unmarshal(unzip(body), index)
+		if err != nil {
+			err = xml.Unmarshal(unzip(body), pages)
+			if err != nil {
+				panic(err)
+			}
+			go func() {
+				for _, page := range pages.Pages {
+					out <- page.Loc
+				}
+				close(out)
+			}()
+		} else {
+			fmt.Println("its index")
+			for _, index := range index.Indexes {
+				respi, erri := http.Get(index.Loc)
+				if erri != nil {
+					panic(erri)
+				}
+				defer respi.Body.Close()
+				body, erri := ioutil.ReadAll(respi.Body)
+				err = xml.Unmarshal(unzip(body), pages)
+				if err != nil {
+					panic(err)
+				}
+				go func() {
+					for _, page := range pages.Pages {
+						out <- page.Loc
+					}
+					close(out)
+				}()
+			}
+
+		}
 	}()
 	return out
 }
