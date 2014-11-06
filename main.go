@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/xml"
 	"flag"
@@ -56,8 +57,13 @@ func unzip(body []byte) []byte {
 func getUrl() <-chan string {
 	out := make(chan string)
 
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+
 	go func() {
-		resp, err := http.Get(flag.Args()[0])
+		resp, err := client.Get(flag.Args()[0])
 		if err != nil {
 			panic(err)
 		}
@@ -77,7 +83,7 @@ func getUrl() <-chan string {
 		} else {
 			for _, index := range index.Indexes {
 				fmt.Println("check index ", index.Loc)
-				respi, erri := http.Get(index.Loc)
+				respi, erri := client.Get(index.Loc)
 				if erri != nil {
 					panic(erri)
 				}
@@ -107,11 +113,15 @@ func main() {
 			tNow := time.Now()
 			var resp *http.Response
 			var err error
+			tr := &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			}
+			client := &http.Client{Transport: tr}
 			defer func() {
 				<-sem
-				fmt.Println(resp.StatusCode, time.Now().Sub(tNow), url, err)
+				fmt.Println(resp.StatusCode, time.Now().Sub(tNow).Seconds(), url, err)
 			}()
-			resp, err = http.Get(url)
+			resp, err = client.Get(url)
 		}(url)
 	}
 }
